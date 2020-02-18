@@ -24,8 +24,14 @@ module Bosh::Director
       rescue Exception => e
         raise "An error has occurred while connecting to NATS: #{e}"
       end
+      if !@nats.connected?
+        @nats = nil
+        @nats = connect
+        if !@nats.connected?
+          raise RpcTimeout
+        end
+      end
     end
-
     # Publishes a payload (encoded as JSON) without expecting a response
     def send_message(client, payload)
       message = JSON.generate(payload)
@@ -88,17 +94,23 @@ module Bosh::Director
               },
             }
 
-            @nats.on_error do |e|
-              password = @nats_uri[/nats:\/\/.*:(.*)@/, 1]
-              redacted_message = password.nil? ? "NATS client error: #{e}" : "NATS client error: #{e}".gsub(password, '*******')
-              @logger.error(redacted_message)
-            end
+            @nats.on_error(&method(:log_nats_error))
 
-            @nats.connect(options)
+            begin
+              @nats.connect(options)
+            rescue Exception => e
+              log_nats_error(e)
+            end
           end
         end
       end
       @nats
+    end
+
+    def log_nats_error(e)
+      password = @nats_uri[/nats:\/\/.*:(.*)@/, 1]
+      redacted_message = password.nil? ? "NATS client error: #{e}" : "NATS client error: #{e}".gsub(password, '*******')
+      @logger.error(redacted_message + "NATS client error class is: #{e.class}")
     end
 
     # subscribe to an inbox, if not already subscribed
