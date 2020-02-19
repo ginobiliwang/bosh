@@ -31,6 +31,7 @@ module Bosh::Director
           raise RpcTimeout
         end
       end
+      @nats
     end
     # Publishes a payload (encoded as JSON) without expecting a response
     def send_message(client, payload)
