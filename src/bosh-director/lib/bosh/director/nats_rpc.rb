@@ -28,7 +28,7 @@ module Bosh::Director
         @nats = nil
         @nats = connect
         if !@nats.connected?
-          raise RpcTimeout
+          return nil
         end
       end
       @nats
@@ -37,7 +37,7 @@ module Bosh::Director
     def send_message(client, payload)
       message = JSON.generate(payload)
       @logger.debug("SENT: #{client} #{message}")
-      nats.publish(client, message)
+      nats&.publish(client, message)
     end
 
     # Sends a request (encoded as JSON) and listens for the response
@@ -54,7 +54,7 @@ module Bosh::Director
       @logger.debug("SENT: #{subject_name} #{sanitized_log_message}") unless options['logging'] == false
 
       subscribe_inbox
-      nats.publish(subject_name, request_body)
+      nats&.publish(subject_name, request_body)
       request_id
     end
 
@@ -122,7 +122,7 @@ module Bosh::Director
         client = nats
         @lock.synchronize do
           if @subject_id.nil?
-            @subject_id = client.subscribe("#{@inbox_name}.>") do |message, _, subject|
+            @subject_id = client&.subscribe("#{@inbox_name}.>") do |message, _, subject|
               @handled_response = true
               handle_response(message, subject)
             end
